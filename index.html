@@ -1,7 +1,354 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CB Foods | Order Search Demo</title>
+  <style>
+    :root{
+      --bg:#0f1115;
+      --panel:#171a21;
+      --panel-2:#1d2230;
+      --text:#e8edf5;
+      --muted:#a8b0bf;
+      --accent:#5dd39e;
+      --accent-2:#3cb179;
+      --danger:#ff6b6b;
+      --border:#2a3040;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body{
+      margin:0;
+      font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 500px at 15% -10%, #1f2533 0%, var(--bg) 45%);
+      color:var(--text);
+      min-height:100vh;
+      line-height:1.45;
+    }
+
+    .container{
+      max-width:920px;
+      margin:48px auto;
+      padding:0 20px;
+    }
+
+    .header{
+      margin-bottom:24px;
+    }
+
+    .header h1{
+      margin:0 0 8px;
+      font-size:1.8rem;
+      letter-spacing:.2px;
+    }
+
+    .header p{
+      margin:0;
+      color:var(--muted);
+    }
+
+    .card{
+      background:linear-gradient(180deg, var(--panel), var(--panel-2));
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:20px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .input-wrap{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    label{
+      color:var(--muted);
+      font-size:.92rem;
+    }
+
+    input[type="text"]{
+      width:100%;
+      background:#111522;
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:10px;
+      padding:12px 14px;
+      font-size:1rem;
+      outline:none;
+      transition:border-color .2s, box-shadow .2s;
+    }
+
+    input[type="text"]:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 3px rgba(93,211,158,.18);
+    }
+
+    .search-type{
+      display:flex;
+      gap:18px;
+      align-items:center;
+      margin-top:8px;
+      flex-wrap:wrap;
+    }
+
+    .search-type label{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      cursor:pointer;
+      color:var(--text);
+    }
+
+    .btn{
+      background:var(--accent);
+      border:none;
+      color:#052515;
+      font-weight:700;
+      border-radius:10px;
+      padding:0 18px;
+      min-height:46px;
+      cursor:pointer;
+      transition:transform .08s ease, background .2s ease;
+    }
+
+    .btn:hover{ background:var(--accent-2); }
+    .btn:active{ transform:translateY(1px); }
+
+    .status{
+      margin-top:14px;
+      font-size:.95rem;
+      color:var(--muted);
+      min-height:20px;
+    }
+
+    .status.error{ color:var(--danger); }
+
+    .results{
+      margin-top:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .result-card{
+      background:#101522;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
+    }
+
+    .result-grid{
+      display:grid;
+      grid-template-columns: 220px 1fr;
+      gap:8px 14px;
+    }
+
+    .field-name{
+      color:var(--muted);
+      font-weight:600;
+    }
+
+    .field-value{
+      color:var(--text);
+      word-break:break-word;
+    }
+
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:.88rem;
+    }
+
+    @media (max-width:700px){
+      .controls{ grid-template-columns: 1fr; }
+      .btn{ width:100%; }
+      .result-grid{ grid-template-columns: 1fr; gap:5px; }
+    }
+  </style>
+</head>
 <body>
-    <h1>Hello from my Cisco Test Page!</h1>
-    <p>This page is hosted on GitHub Pages.</p>
+  <main class="container">
+    <section class="header">
+      <h1>CB Foods Order Search</h1>
+      <p>Webex Contact Center Demo – Search existing orders by Order Number or Customer Name.</p>
+    </section>
+
+    <section class="card">
+      <div class="search-type">
+        <label>
+          <input type="radio" name="searchBy" value="order_number" checked />
+          Search by Order Number
+        </label>
+        <label>
+          <input type="radio" name="searchBy" value="customer_name" />
+          Search by Customer Name
+        </label>
+      </div>
+
+      <div class="controls">
+        <div class="input-wrap">
+          <label for="searchInput">Enter search value</label>
+          <input id="searchInput" type="text" placeholder="e.g. ORD-260301 or Island Grill" />
+        </div>
+        <button class="btn" id="searchBtn">Search</button>
+      </div>
+
+      <div class="hint">
+        <strong>Behavior:</strong> Order Number = exact match (case-insensitive). Customer Name = partial/fuzzy match (case-insensitive).
+      </div>
+
+      <div id="status" class="status"></div>
+      <div id="results" class="results"></div>
+    </section>
+  </main>
+
+  <script>
+    const API_URL = "https://69af4cd0c8b37f499837dab9.mockapi.io/api/cbfoodsv1/orders";
+
+    const fieldLabels = {
+      order_number: "Order Number",
+      customer_name: "Customer Name",
+      parish: "Parish",
+      customer_type: "Customer Type",
+      product: "Product",
+      quantity_cases: "Quantity (Cases)",
+      requested_delivery_date: "Requested Delivery Date",
+      status: "Status",
+      eta: "ETA",
+      recommended_queue: "Recommended Queue"
+    };
+
+    const searchBtn = document.getElementById("searchBtn");
+    const searchInput = document.getElementById("searchInput");
+    const resultsEl = document.getElementById("results");
+    const statusEl = document.getElementById("status");
+
+    function normalize(str) {
+      return (str ?? "").toString().trim().toLowerCase();
+    }
+
+    function renderResults(records) {
+      resultsEl.innerHTML = "";
+
+      if (!records.length) {
+        statusEl.textContent = "No matching orders found.";
+        return;
+      }
+
+      statusEl.textContent = `${records.length} result(s) found.`;
+
+      records.forEach(record => {
+        const card = document.createElement("article");
+        card.className = "result-card";
+
+        const grid = document.createElement("div");
+        grid.className = "result-grid";
+
+        Object.keys(fieldLabels).forEach(key => {
+          const label = document.createElement("div");
+          label.className = "field-name";
+          label.textContent = fieldLabels[key];
+
+          const value = document.createElement("div");
+          value.className = "field-value";
+          value.textContent = record[key] ?? "-";
+
+          grid.appendChild(label);
+          grid.appendChild(value);
+        });
+
+        card.appendChild(grid);
+        resultsEl.appendChild(card);
+      });
+    }
+
+    async function performSearch() {
+      const query = searchInput.value.trim();
+      const searchBy = document.querySelector('input[name="searchBy"]:checked').value;
+
+      resultsEl.innerHTML = "";
+      statusEl.classList.remove("error");
+
+      if (!query) {
+        statusEl.textContent = "Please enter a search value.";
+        statusEl.classList.add("error");
+        return;
+      }
+
+      statusEl.textContent = "Searching...";
+
+      try {
+        const res = await fetch(API_URL);
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+
+        const data = await res.json();
+        const q = normalize(query);
+
+        let matches = [];
+
+        if (searchBy === "order_number") {
+          // strict exact match, case-insensitive
+          matches = data.filter(item => normalize(item.order_number) === q);
+        } else {
+          // permissive partial match, case-insensitive
+          matches = data.filter(item => normalize(item.customer_name).includes(q));
+        }
+
+        renderResults(matches);
+      } catch (err) {
+        statusEl.textContent = "Search failed. Please check API availability and try again.";
+        statusEl.classList.add("error");
+        console.error(err);
+      }
+    }
+
+    searchBtn.addEventListener("click", performSearch);
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") performSearch();
+    });
+  </script>
 </body>
+<script>
+  // IMI Chat Environment Configuration
+  var imiEnvironments = {
+    "target": "default",
+    "default": {
+      "asset": {
+        "appId": "CH10213754",
+        "appSecret": "s6wWYeY4",
+        "pathConfig": {
+          "assetPath": "/assets/",
+          "root": "/"
+        }
+      },
+      "imiclient": {
+        "shouldRequestNotificationPermission": true,
+        "config": {},
+        "imipush": {
+          "safariWebPushId": "web.com.imiconnect.safari.webpush"
+        },
+        "authdomain": "https://rtm-us.imiconnect.io/rtmsAPI",
+        "rtmsdomain": "rtm-us.imiconnect.io",
+        "safariRegisterURL": "https://rtm-us.imiconnect.io/apnpweb/"
+      },
+      "sw": {
+        "config": {
+          "messagingSenderId": "",
+          "serverUrl": "https://rtm-us.imiconnect.io",
+          "appid": "CH10213754"
+        }
+      }
+    }
+  };
+</script>
 </html>
